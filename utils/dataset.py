@@ -190,7 +190,7 @@ class VOCDataset(data.Dataset):
         anno_list = self.transform_anno(xml_path, width, height)
         
         # 3. 画像とアノテーションの前処理を行う
-        img, boxes, labels = transform(img, phase, anno_list[:, :4], anno_list[:, 4])
+        img, boxes, labels = self.transform(img, self.phase, anno_list[:, :4], anno_list[:, 4])
         
         # 4. transform BGR to RGB
         img = torch.from_numpy(img[:, :, (2, 1, 0)])
