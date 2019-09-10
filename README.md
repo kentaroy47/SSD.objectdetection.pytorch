@@ -2,6 +2,8 @@
 This repo is an object detection library for pytorch (ssd, yolo, faster-rcnn).
 
 ## To start off
+requirements: cv2, pandas. plz install.
+
 clone the repo.
 ```
 git clone https://github.com/kentaroy47/ObjectDetection.Pytorch.git
