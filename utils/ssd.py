@@ -510,21 +510,20 @@ class Detect(Function):
                 
                 
                 
-                
-
-
-# In[37]:
-
-
 class SSD(nn.Module):
-    def __init__(self, phase, cfg):
+    def __init__(self, phase, cfg, base="vgg"):
         super(SSD, self).__init__()
         
         self.phase = phase
         self.num_classes = cfg["num_classes"]
+        self.model = base
         
         # call SSD network
-        self.vgg = make_vgg()
+        if base=="vgg":
+            self.base = make_vgg()
+        elif base=="res18":
+            resnet = models.resnet18()
+            self.base = nn.Sequential(*list(resnet.children())[:-2])
         self.extras = make_extras()
         self.L2Norm = L2Norm()
         self.loc, self.conf = make_loc_conf(self.num_classes, cfg["bbox_aspect_num"])
@@ -543,16 +542,20 @@ class SSD(nn.Module):
         conf = list()
         
         # VGGのconv4_3まで計算
-        for k in range(23):
-            x = self.vgg[k](x)
+        if self.model == "vgg":
+            length=23
+        else:
+            length = len(self.base)
+        for k in range(length):
+            x = self.base[k](x)
         
         # conv4_3の出力をL2Normに入力。source1をsourceに追加
         source1 = self.L2Norm(x)
         sources.append(source1)
         
         # VGGを最後まで計算しsource2を取得
-        for k in range(23, len(self.vgg)):
-            x = self.vgg[k](x)
+        for k in range(length, len(self.base)):
+            x = self.base[k](x)
         
         sources.append(x)
         
