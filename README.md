@@ -1,6 +1,8 @@
 # ObjectDetection.Pytorch
 This repo is an object detection library for pytorch (ssd, yolo, faster-rcnn).
 
+![horse](https://github.com/kentaroy47/ObjectDetection.Pytorch/blob/master/horse/sample.JPG)
+
 ## To start off
 requirements: cv2, pandas. plz install.
 
@@ -23,6 +25,11 @@ wget https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth
 
 ## Train SSD Models
 run train_ssd.ipynb
+
+to run inference, try inference.ipynb.
+
+the trained SSD model is here (still underfitting..)
+
 
 ## Train YOLO Models
 run yolo.ipynb (TBD)
