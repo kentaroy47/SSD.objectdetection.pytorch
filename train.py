@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # coding: utf-8
 
 # # setup dataset
@@ -155,7 +154,7 @@ criterion = MultiBoxLoss(jaccard_thresh=0.5,neg_pos=3, device=device)
 
 # optim
 import torch.optim as optim
-optimizer = optim.SGD(net.parameters(), lr=1e-3, momentum=0.9, weight_decay=5e-4)
+optimizer = optim.SGD(net.parameters(), lr=1e-2, momentum=0.9, weight_decay=5e-4)
 
 
 # In[37]:
