@@ -3,6 +3,8 @@ This repo is an object detection library for pytorch (ssd, yolo, faster-rcnn).
 
 ![horse](https://github.com/kentaroy47/ObjectDetection.Pytorch/blob/master/horse/sample.JPG)
 
+![usa](https://github.com/kentaroy47/ObjectDetection.Pytorch/blob/master/imgs/sample2.JPG)
+
 ## To start off
 requirements: cv2, pandas. plz install.
 
