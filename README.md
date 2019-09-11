@@ -29,7 +29,7 @@ run train_ssd.ipynb
 to run inference, try inference.ipynb.
 
 the trained SSD model is here (still underfitting..)
-
+https://github.com/kentaroy47/ObjectDetection.Pytorch/releases/download/ssdvgg100/ssd300_100.pth
 
 ## Train YOLO Models
 run yolo.ipynb (TBD)
