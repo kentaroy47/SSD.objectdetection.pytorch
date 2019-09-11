@@ -13,19 +13,20 @@ import numpy as np
 import torch
 import torch.utils.data as data
 from itertools import product as product
+import time
 
 import torch
 import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
 from torch.autograd import Function
-
+import pandas as pd
 
 # In[25]:
 
 
 # import dataset
-from dataset import VOCDataset, DatasetTransform, make_datapath_list, Anno_xml2list, od_collate_fn
+from utils.dataset import VOCDataset, DatasetTransform, make_datapath_list, Anno_xml2list, od_collate_fn
 
 
 # ## data.Datasetを作成し、学習に備える
@@ -34,7 +35,7 @@ from dataset import VOCDataset, DatasetTransform, make_datapath_list, Anno_xml2l
 
 
 # load files
-vocpath = "../../../VOCdevkit/VOC2007"
+vocpath = "../VOCdevkit/VOC2007"
 train_img_list, train_anno_list, val_img_list, val_anno_list = make_datapath_list(vocpath)
 
 # make Dataset
@@ -102,7 +103,7 @@ print(targets[1].shape)  # ミニバッチのサイズのリスト、各要素�
 # In[30]:
 
 
-from ssd import SSD
+from utils.ssd import SSD
 
 
 # In[33]:
@@ -128,9 +129,9 @@ net.vgg.load_state_dict(vgg_weights)
 
 def weights_init(m):
     if isinstance(m, nn.Conv2d):
-        init.kaiming_normal_(m.weight_data)
+        init.kaiming_normal_(m.weight.data)
         if m.bias is not None:
-            nn.init.constant_(m_bias, 0.0)
+            nn.init.constant_(m.bias, 0.0)
 
 # 初期値を適応
 net.extras.apply(weights_init)
@@ -141,7 +142,7 @@ net.conf.apply(weights_init)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print("using:", device)
 
-print("設定完了.重みを読み込んだ")
+print("start train")
 
 
 # In[36]:
@@ -167,7 +168,7 @@ def train_model(net, dataloaders_dict, criterion, optimizer, num_epochs):
 
     # GPUが使えるかを確認
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print("使用デバイス：", device)
+    print("using", device)
 
     # ネットワークをGPUへ
     net.to(device)
@@ -196,12 +197,12 @@ def train_model(net, dataloaders_dict, criterion, optimizer, num_epochs):
         for phase in ['train', 'val']:
             if phase == 'train':
                 net.train()  # モデルを訓練モードに
-                print('（train）')
+                print('train')
             else:
                 if((epoch+1) % 10 == 0):
                     net.eval()   # モデルを検証モードに
                     print('-------------')
-                    print('（val）')
+                    print('val')
                 else:
                     # 検証は10回に1回だけ行う
                     continue
@@ -239,7 +240,7 @@ def train_model(net, dataloaders_dict, criterion, optimizer, num_epochs):
                         if (iteration % 10 == 0):  # 10iterに1度、lossを表示
                             t_iter_finish = time.time()
                             duration = t_iter_finish - t_iter_start
-                            print('イテレーション {} || Loss: {:.4f} || 10iter: {:.4f} sec.'.format(
+                            print('iter{} || Loss: {:.4f} || 10iter: {:.4f} sec.'.format(
                                 iteration, loss.item(), duration))
                             t_iter_start = time.time()
 
