@@ -27,14 +27,13 @@ def make_datapath_list(rootpath):
     
     # get id
     train_id_names = os.path.join(rootpath, "ImageSets", "Main", "trainval.txt")
-    val_id_names = os.path.join(rootpath, "ImageSets", "Main", "val.txt")
+    val_id_names = os.path.join(rootpath, "ImageSets", "Main", "test.txt")
     
     train_img_list = list()
     train_anno_list = list()
     
     for line in open(train_id_names):
         file_id = line.strip()
-        print(line)
         img_path = (img_path_template % file_id)
         anno_path = (anno_path_template % file_id)
         train_img_list.append(img_path)
