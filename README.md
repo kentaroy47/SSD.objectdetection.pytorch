@@ -1,5 +1,5 @@
 # ObjectDetection.Pytorch
-![teaser](https://github.com/kentaroy47/ObjectDetection.Pytorch/blob/master/imgs.1.png)
+![teaser](https://github.com/kentaroy47/ObjectDetection.Pytorch/blob/master/imgs/1.png)
 This repo is an object detection library for pytorch (ssd, yolo, faster-rcnn).
 
 ## To start off
