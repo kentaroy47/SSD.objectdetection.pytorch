@@ -40,6 +40,15 @@ from utils.dataset import VOCDataset, DatasetTransform, make_datapath_list, Anno
 vocpath = "../VOCdevkit/VOC2007"
 train_img_list, train_anno_list, val_img_list, val_anno_list = make_datapath_list(vocpath)
 
+vocpath = "../VOCdevkit/VOC2012"
+train_img_list2, train_anno_list2, _, _ = make_datapath_list(vocpath)
+
+train_img_list.extend(train_img_list2)
+train_anno_list.extend(train_anno_list2)
+
+print("trainlist: ", len(train_img_list))
+print("vallist: ", len(val_img_list))
+
 # make Dataset
 voc_classes = ['aeroplane', 'bicycle', 'bird', 'boat',
                'bottle', 'bus', 'car', 'cat', 'chair',

@@ -515,6 +515,7 @@ class Detect(Function):
 
 # In[37]:
 
+import torch.nn as nn
 
 class SSD(nn.Module):
     def __init__(self, phase, cfg):
@@ -531,6 +532,7 @@ class SSD(nn.Module):
         
         # make Dbox
         dbox = DBox(cfg)
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.dbox_list = dbox.make_dbox_list()
         
         # use Detect if inference
@@ -589,7 +591,7 @@ class SSD(nn.Module):
         
         if self.phase == "inference":
             # Detectのforward
-            return self.detect(output[0], output[1], output[2])
+            return self.detect(output[0], output[1], output[2].to(self.device))
         else:
             return output
 

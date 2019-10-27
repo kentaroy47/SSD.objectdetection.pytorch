@@ -36,3 +36,35 @@ run yolo.ipynb (TBD)
 
 ## Train Faster RCNN Models
 run frcnn.ipynb (TBD)
+
+# Training results for ssd
+
+Pascal VOC 2007 test set:
+
+Mean AP = 0.7959
+
+~~~~~~~~
+Results:
+0.842
+0.850
+0.784
+0.736
+0.518
+0.891
+0.888
+0.902
+0.634
+0.832
+0.793
+0.873
+0.899
+0.862
+0.815
+0.521
+0.798
+0.815
+0.885
+0.780
+0.796
+~~~~~~~~
+
