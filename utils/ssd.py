@@ -33,7 +33,6 @@ import pandas as pd
 
 # plot vgg model
 vgg = models.vgg16(pretrained=False)
-print(vgg)
 
 
 # In[3]:
@@ -66,11 +65,6 @@ def make_vgg():
 
 # 動作確認
 vgg_test = make_vgg()
-print(vgg_test)
-
-
-# In[4]:
-
 
 # 小さい物体のbbox検出用のextras moduleを追加
 def make_extras():
@@ -92,7 +86,6 @@ def make_extras():
     return nn.ModuleList(layers)
 
 extras_test = make_extras()
-print(extras_test)
 
 
 # ## locとconfに対するモジュール。
@@ -142,8 +135,6 @@ def make_loc_conf(num_classes=21, bbox_aspect_num=[4, 6, 6, 6, 4, 4]):
     return nn.ModuleList(loc_layers), nn.ModuleList(conf_layers)
 
 loc_test, conf_test = make_loc_conf()
-print(loc_test)
-print(conf_test)
 
 
 # ## L2 normの実装
@@ -177,19 +168,6 @@ class L2Norm(nn.Module):
         out = weights * x
         
         return out
-        
-
-
-# In[7]:
-
-
-# bbox
-for i, j in product(range(3), repeat=2):
-    print(i, j)
-
-
-# In[8]:
-
 
 # binding boxを出力するクラス
 
@@ -296,7 +274,7 @@ class SSD2(nn.Module):
 
 # check operation
 ssd_test = SSD2(phase="train", cfg=ssd_cfg)
-print(ssd_test)
+#print(ssd_test)
 
 
 # In[27]:
@@ -326,11 +304,10 @@ def decode(loc, dbox_list):
 # test
 dbox = DBox(ssd_cfg)
 dbox_list = dbox.make_dbox_list()
-print(dbox_list.size())
+
 
 loc = torch.ones(8732, 4)
 loc[0, :] = torch.tensor([-10, 0, 1, 1])
-print(loc.size())
 
 dbox_process = decode(loc, dbox_list)
 
@@ -342,102 +319,107 @@ pd.DataFrame(dbox_process.numpy())
 
 def nms(boxes, scores, overlap=0.45, top_k=200):
     """
-    overlap以上のディテクションに関して信頼度が高い方をキープする。
-    キープしないものは消去。
-    
-    物体のクラス毎にnmsは実効する。
-    ------------------
-    inputs:
-        scores: bboxの信頼度
-        bbox: bboxの座標情報
-    
-    ------------------
-    出力:
-        keep:
+    Non-Maximum Suppressionを行う関数。
+    boxesのうち被り過ぎ（overlap以上）のBBoxを削除する。
+
+    Parameters
+    ----------
+    boxes : [確信度閾値（0.01）を超えたBBox数,4]
+        BBox情報。
+    scores :[確信度閾値（0.01）を超えたBBox数]
+        confの情報
+
+    Returns
+    -------
+    keep : リスト
+        confの降順にnmsを通過したindexが格納
+    count：int
+        nmsを通過したBBoxの数
     """
-    
-    # returnを定義
+
+    # returnのひな形を作成
     count = 0
     keep = scores.new(scores.size(0)).zero_().long()
-    print(keep.size())
-    # keep: 確信度thresholdを超えたbboxの数
-    
-    # 各bboxの面積を計算
+    # keep：torch.Size([確信度閾値を超えたBBox数])、要素は全部0
+
+    # 各BBoxの面積areaを計算
     x1 = boxes[:, 0]
-    x2 = boxes[:, 2]
     y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
     y2 = boxes[:, 3]
     area = torch.mul(x2 - x1, y2 - y1)
-    
-    # copy boxes
+
+    # boxesをコピーする。後で、BBoxの被り度合いIOUの計算に使用する際のひな形として用意
     tmp_x1 = boxes.new()
     tmp_y1 = boxes.new()
     tmp_x2 = boxes.new()
     tmp_y2 = boxes.new()
     tmp_w = boxes.new()
     tmp_h = boxes.new()
-    
-    # sort scores 高い信頼度のものを上に。
+
+    # socreを昇順に並び変える
     v, idx = scores.sort(0)
-    
-    # topk個の箱のみ取り出す
+
+    # 上位top_k個（200個）のBBoxのindexを取り出す（200個存在しない場合もある）
     idx = idx[-top_k:]
-    
-    # indexの要素数が0でない限りループする。
+
+    # idxの要素数が0でない限りループする
     while idx.numel() > 0:
-        i = idx[-1] # 一番高い信頼度のboxを指定
-        
-        # keep の最後にconf最大のindexを格納
+        i = idx[-1]  # 現在のconf最大のindexをiに
+
+        # keepの現在の最後にconf最大のindexを格納する
+        # このindexのBBoxと被りが大きいBBoxをこれから消去する
         keep[count] = i
         count += 1
-        
-        # 最後の一つになったらbreak
+
+        # 最後のBBoxになった場合は、ループを抜ける
         if idx.size(0) == 1:
             break
-        # indexをへらす
+
+        # 現在のconf最大のindexをkeepに格納したので、idxをひとつ減らす
         idx = idx[:-1]
-        
-        # ------------------------------------
-        # このboxとiouの大きいboxを消していく。
-        # ------------------------------------
-        
-        # torch.index_select(input, dim, index, out=None) → Tensor
+
+        # -------------------
+        # これからkeepに格納したBBoxと被りの大きいBBoxを抽出して除去する
+        # -------------------
+        # ひとつ減らしたidxまでのBBoxを、outに指定した変数として作成する
         torch.index_select(x1, 0, idx, out=tmp_x1)
         torch.index_select(y1, 0, idx, out=tmp_y1)
         torch.index_select(x2, 0, idx, out=tmp_x2)
         torch.index_select(y2, 0, idx, out=tmp_y2)
-        
-        # target boxの最小、最大にclamp
+
+        # すべてのBBoxに対して、現在のBBox=indexがiと被っている値までに設定(clamp)
         tmp_x1 = torch.clamp(tmp_x1, min=x1[i])
         tmp_y1 = torch.clamp(tmp_y1, min=y1[i])
-        tmp_x2 = torch.clamp(tmp_x2, min=x2[i])
-        tmp_y2 = torch.clamp(tmp_y2, min=y2[i])
-        
-        # wとhのテンソルサイズをindex一つ減らしたものにする
-        tmp_w.resize_as_(temp_x2)
-        tmp_h.resize_as_(temp_y2)
-        
-        # clampした状態の高さ、幅を求める
+        tmp_x2 = torch.clamp(tmp_x2, max=x2[i])
+        tmp_y2 = torch.clamp(tmp_y2, max=y2[i])
+
+        # wとhのテンソルサイズをindexを1つ減らしたものにする
+        tmp_w.resize_as_(tmp_x2)
+        tmp_h.resize_as_(tmp_y2)
+
+        # clampした状態でのBBoxの幅と高さを求める
         tmp_w = tmp_x2 - tmp_x1
         tmp_h = tmp_y2 - tmp_y1
-        
-        # 幅や高さが負になっているものは0に
+
+        # 幅や高さが負になっているものは0にする
         tmp_w = torch.clamp(tmp_w, min=0.0)
         tmp_h = torch.clamp(tmp_h, min=0.0)
-        
-        # clamp時の面積を導出
-        inter = tmp_w * tmp_h # オーバラップしている面積
-        
-        # IoU の計算
-        # intersect=overlap
-        # IoU = intersect部分 / area(a) + area(b) - intersect
-        rem_areas = torch.index_select(area, 0, idx) # bbox元の面積
-        union = rem_areas + area[i] - inter
-        IoU = inter / union
 
-        # IoUがしきい値より大きいものは削除
-        idx = idx[IoU.le(overlap)] # leはless than or eqal to
-    
+        # clampされた状態での面積を求める
+        inter = tmp_w*tmp_h
+
+        # IoU = intersect部分 / (area(a) + area(b) - intersect部分)の計算
+        rem_areas = torch.index_select(area, 0, idx)  # 各BBoxの元の面積
+        union = (rem_areas - inter) + area[i]  # 2つのエリアのANDの面積
+        IoU = inter/union
+
+        # IoUがoverlapより小さいidxのみを残す
+        idx = idx[IoU.le(overlap)]  # leはLess than or Equal toの処理をする演算です
+        # IoUがoverlapより大きいidxは、最初に選んでkeepに格納したidxと同じ物体に対してBBoxを囲んでいるため消去
+
+    # whileのループが抜けたら終了
+
     return keep, count
 
 
@@ -508,7 +490,84 @@ class Detect(Function):
                 
         return output # torch.size([batch, 21, 200, 5])
                 
+class Detect_Flip(nn.Module):
+    def __init__(self, conf_thresh=0.01, top_k=100, nms_thresh=0.45):
+        super(Detect_Flip, self).__init__()
+        self.softmax = nn.Softmax(dim=-1)
+        self.conf_thresh = conf_thresh
+        self.top_k = top_k
+        self.nms_thresh = nms_thresh
+        
+    def forward(self, loc_data, conf_data, loc_data2, conf_data2, dbox_list):
+        """
+        SSDの推論結果を受け取り、bboxのデコードとnms処理を行う。
+        """
+        # 
+        num_batch = loc_data.size(0)
+        num_dbox = loc_data.size(1)
+        num_classes = conf_data.size(2)
+        
+        # confをsoftmaxを使って正規化
+        conf_data = self.softmax(conf_data)
+        conf_data2 = self.softmax(conf_data2)
+        
+        # 出力の方を作成する
+        # [batch, class, topk, 5]
+        output = torch.zeros(num_batch, num_classes, self.top_k, 5)
+        
+        # conf_dataを[batch, 8732, classes]から[batch, classes, 8732]に変更
+        conf_preds = conf_data.transpose(2, 1)
+        conf_preds2 = conf_data2.transpose(2, 1)
+        
+        # batch毎にループ
+        for i in range(num_batch):
+            # 1. LocとDBoxからBBox情報に変換
+            decoded_boxes = decode(loc_data[i], dbox_list)
+            decoded_boxes2 = decode(loc_data2[i], dbox_list)
+            
+            # confのコピー
+            conf_scores = conf_preds[i].clone()
+            conf_scores2 = conf_preds2[i].clone()
+            
+            # classごとにデコードとNMSを回す。
+            for cl in range(1, num_classes): # 背景は飛ばす。
+                # 2. 敷地を超えた結果を取り出す
+                c_mask = conf_scores[cl].gt(self.conf_thresh) # gt=greater than
+                c_mask2 = conf_scores2[cl].gt(self.conf_thresh) # gt=greater than
+                # index maskを作成した。
+                # threshを超えると1, 超えなかったら0に。
+                # c_mask = [8732]
                 
+                scores = conf_scores[cl][c_mask]
+                scores2 = conf_scores2[cl][c_mask2]
+                
+                if scores.nelement() == 0 and scores2.nelement() == 0:
+                    continue
+                    # 箱がなかったら終わり。
+                    
+                # cmaskをboxに適応できるようにサイズ変更
+                l_mask = c_mask.unsqueeze(1).expand_as(decoded_boxes)
+                l_mask2 = c_mask2.unsqueeze(1).expand_as(decoded_boxes2)
+                # l_mask.size = [8732, 4]
+                boxes = decoded_boxes[l_mask].view(-1, 4) # reshape to [boxnum, 4]
+                boxes2 = decoded_boxes2[l_mask2].view(-1, 4) # reshape to [boxnum, 4]
+                
+                # boxes2 are flipped.. fix that.
+                tmpbox = boxes2
+                boxes2[:, 0] = 1 - tmpbox[:, 2]
+                boxes2[:, 2] = 1 - tmpbox[:, 0]
+                
+                # concat boxes and score
+                boxes = torch.cat((boxes, boxes2), 0)
+                scores = torch.cat((scores, scores2), 0)
+                
+                # 3. NMSを適応する
+                ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
+                
+                #torch.cat(tensors, dim=0, out=None) → Tensor
+                output[i, cl, :count] = torch.cat((scores[ids[:count]].unsqueeze(1), boxes[ids[:count]]), 1)
+                
+        return output      
                 
                 
 
@@ -595,8 +654,47 @@ class SSD(nn.Module):
         else:
             return output
 
+class SSDFlip(nn.Module):
+    """二回推論を行うクラス"""
+    def __init__(self, eval_categories, net, device):
+        super(SSDFlip, self).__init__()  # 親クラスのコンストラクタ実行
+        print(device)
+        self.net = net.to(device)  # SSDネットワーク
+        self.device = device
+        
+    def ssd_predict(self, x):
+        detections = self.net(x)
+        
+        # flip image
+        x = x[:, :, ::-1, :] # x = [batch, height, width, channel]
+        flipped_detections = self.net(x)
+        
+        # flip detections
+        
+        # confidence_levelが基準以上を取り出す
+        predict_bbox = []
+        pre_dict_label_index = []
+        scores = []
+        detections = detections.cpu().detach().numpy()
 
-# In[ ]:
+        # 条件以上の値を抽出
+        find_index = np.where(detections[:, 0:, :, 0] >= data_confidence_level)
+        detections = detections[find_index]
+        for i in range(len(find_index[1])):  # 抽出した物体数分ループを回す
+            if (find_index[1][i]) > 0:  # 背景クラスでないもの
+                sc = detections[i][0]  # 確信度
+                bbox = detections[i][1:] * [width, height, width, height]
+                # find_indexはミニバッチ数、クラス、topのtuple
+                lable_ind = find_index[1][i]-1
+                # （注釈）
+                # 背景クラスが0なので1を引く
+
+                # 返り値のリストに追加
+                predict_bbox.append(bbox)
+                pre_dict_label_index.append(lable_ind)
+                scores.append(sc)
+
+        return rgb_img, predict_bbox, pre_dict_label_index, scores
 
 
 
