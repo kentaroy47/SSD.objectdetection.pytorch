@@ -219,7 +219,79 @@ class DBox(object):
         
         return output
                     
-                
+def softnms(bboxes, scores, nms_threshold=0.3, soft_threshold=0.3, sigma=0.5, mode='union'):
+    """
+    soft-nms implentation according the soft-nms paper
+    :param bboxes:
+    :param scores:
+    :param labels:
+    :param nms_threshold:
+    :param soft_threshold:
+    :return:
+    """
+
+
+    box_keep = []
+    labels_keep = []
+    scores_keep = []
+
+    c_boxes = bboxes
+    c_scores = scores
+    weights = c_scores.clone()
+    x1 = c_boxes[:, 0]
+    y1 = c_boxes[:, 1]
+    x2 = c_boxes[:, 2]
+    y2 = c_boxes[:, 3]
+    areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+    _, order = weights.sort(0, descending=True)
+    
+    while order.numel() > 0:
+        try:
+            i = order[0]
+        except:
+            i = order
+        box_keep.append(c_boxes[i])
+        #labels_keep.append(c)
+        scores_keep.append(c_scores[i])
+
+        if order.numel() == 1:
+            break
+
+        xx1 = x1[order[1:]].clamp(min=x1[i])
+        yy1 = y1[order[1:]].clamp(min=y1[i])
+        xx2 = x2[order[1:]].clamp(max=x2[i])
+        yy2 = y2[order[1:]].clamp(max=y2[i])
+
+        w = (xx2 - xx1 + 1).clamp(min=0)
+        h = (yy2 - yy1 + 1).clamp(min=0)
+        inter = w * h
+
+        if mode == 'union':
+            ovr = inter / (areas[i] + areas[order[1:]] - inter)
+        elif mode == 'min':
+            ovr = inter / areas[order[1:]].clamp(max=areas[i])
+        else:
+            raise TypeError('Unknown nms mode: %s.' % mode)
+
+        ids_t= (ovr>=nms_threshold).nonzero().squeeze()
+
+        weights[[order[ids_t+1]]] *= torch.exp(-(ovr[ids_t] * ovr[ids_t]) / sigma)
+
+        ids = (weights[order[1:]] >= soft_threshold).nonzero().squeeze()
+        if ids.numel() == 0:
+            break
+        c_boxes = c_boxes[order[1:]][ids]
+        c_scores = weights[order[1:]][ids]
+        _, order = weights[order[1:]][ids].sort(0, descending=True)
+        if c_boxes.dim()==1:
+            c_boxes=c_boxes.unsqueeze(0)
+            c_scores=c_scores.unsqueeze(0)
+        x1 = c_boxes[:, 0]
+        y1 = c_boxes[:, 1]
+        x2 = c_boxes[:, 2]
+        y2 = c_boxes[:, 3]
+        areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+    return box_keep, scores_keep              
         
 
 
@@ -427,6 +499,7 @@ def nms(boxes, scores, overlap=0.45, top_k=200):
 
 # In[35]:
 
+from utils.nms2 import nms as nms2
 
 class Detect(Function):
     def __init__(self, conf_thresh=0.01, top_k=200, nms_thresh=0.45):
@@ -472,6 +545,10 @@ class Detect(Function):
                 
                 scores = conf_scores[cl][c_mask]
                 
+                # sort scores and boxes
+                _, order = torch.sort(scores, 0, True)
+                
+                
                 if scores.nelement() == 0:
                     continue
                     # 箱がなかったら終わり。
@@ -482,7 +559,8 @@ class Detect(Function):
                 boxes = decoded_boxes[l_mask].view(-1, 4) # reshape to [boxnum, 4]
                 
                 # 3. NMSを適応する
-                ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
+                ids, count = nms(boxes[order], scores[order], self.nms_thresh, self.top_k)
+                #keep = nms_gpu(boxes[order], scores[order])
                 
                 # torch.cat(tensors, dim=0, out=None) → Tensor
                 output[i, cl, :count] = torch.cat((scores[ids[:count]].unsqueeze(1), boxes[ids[:count]]), 
@@ -491,13 +569,21 @@ class Detect(Function):
         return output # torch.size([batch, 21, 200, 5])
                 
 class Detect_Flip(nn.Module):
-    def __init__(self, conf_thresh=0.01, top_k=100, nms_thresh=0.45):
+    def __init__(self, conf_thresh=0.01, top_k=200, nms_thresh=0.45, TTA=True, softnms=False):
         super(Detect_Flip, self).__init__()
         self.softmax = nn.Softmax(dim=-1)
         self.conf_thresh = conf_thresh
         self.top_k = top_k
         self.nms_thresh = nms_thresh
-        
+        self.TTA = TTA
+        self.softnms = softnms
+        if TTA:
+            print("test time flip is ON.")
+        else:
+            print("test time flip is OFF.")
+        print("nms thresh is :", nms_thresh)
+        print("soft nms is : ", softnms)
+            
     def forward(self, loc_data, conf_data, loc_data2, conf_data2, dbox_list):
         """
         SSDの推論結果を受け取り、bboxのデコードとnms処理を行う。
@@ -525,6 +611,7 @@ class Detect_Flip(nn.Module):
             decoded_boxes = decode(loc_data[i], dbox_list)
             decoded_boxes2 = decode(loc_data2[i], dbox_list)
             
+            
             # confのコピー
             conf_scores = conf_preds[i].clone()
             conf_scores2 = conf_preds2[i].clone()
@@ -539,9 +626,9 @@ class Detect_Flip(nn.Module):
                 # c_mask = [8732]
                 
                 scores = conf_scores[cl][c_mask]
-                scores2 = conf_scores2[cl][c_mask2]
-                
-                if scores.nelement() == 0 and scores2.nelement() == 0:
+                scores2 = conf_scores2[cl][c_mask2]               
+                               
+                if scores.nelement() == 0:
                     continue
                     # 箱がなかったら終わり。
                     
@@ -554,18 +641,38 @@ class Detect_Flip(nn.Module):
                 
                 # boxes2 are flipped.. fix that.
                 tmpbox = boxes2
+                #try:
+                #    print("min box x", np.min(tmpbox.cpu().numpy()[:, 0]))
+                #    print("max box x", np.max(tmpbox.cpu().numpy()[:, 2]))
+                #except:
+                #    print("no box")
                 boxes2[:, 0] = 1 - tmpbox[:, 2]
                 boxes2[:, 2] = 1 - tmpbox[:, 0]
-                
+                              
                 # concat boxes and score
-                boxes = torch.cat((boxes, boxes2), 0)
-                scores = torch.cat((scores, scores2), 0)
+                if self.TTA:
+                    boxes = torch.cat((boxes, boxes2), 0)
+                    scores = torch.cat((scores, scores2), 0)
                 
-                # 3. NMSを適応する
-                ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
+                #print(boxes.shape)
+                #print(scores.shape)
                 
-                #torch.cat(tensors, dim=0, out=None) → Tensor
-                output[i, cl, :count] = torch.cat((scores[ids[:count]].unsqueeze(1), boxes[ids[:count]]), 1)
+                if not self.softnms:
+                    # 3. NMSを適応する
+                    ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
+                    #count = len(ids)
+                    ##torch.cat(tensors, dim=0, out=None) → Tensor
+                    output[i, cl, :count] = torch.cat((scores[ids[:count]].unsqueeze(1), boxes[ids[:count]]), 1)
+                
+                # 4. soft-nmsを適応する
+                else:
+                    boxes, scores = softnms(boxes, scores)                
+                    if boxes == []:
+                        continue                   
+                    boxes = torch.stack(boxes)
+                    scores = torch.stack(scores)
+
+                    output[i, cl, :len(scores)] = torch.cat((scores.unsqueeze(1), boxes), 1)
                 
         return output      
                 

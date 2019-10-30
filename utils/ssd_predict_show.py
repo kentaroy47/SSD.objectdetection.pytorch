@@ -13,12 +13,13 @@ import torch.nn as nn
 class SSDPredictShow(nn.Module):
     """SSDでの予測と画像の表示をまとめて行うクラス"""
 
-    def __init__(self, eval_categories, net, device):
+    def __init__(self, eval_categories, net, device, TTA=True):
         super(SSDPredictShow, self).__init__()  # 親クラスのコンストラクタ実行
         print(device)
         self.eval_categories = eval_categories  # クラス名
         self.net = net.to(device)  # SSDネットワーク
         self.device = device
+        self.TTA=TTA
 
         color_mean = (104, 117, 123)  # (BGR)の色の平均値
         input_size = 300  # 画像のinputサイズを300×300にする
@@ -169,18 +170,19 @@ from utils.ssd import Detect_Flip
 class SSDPredictShowFlip(nn.Module):
     """SSDでの予測と画像の表示をまとめて行うクラス"""
 
-    def __init__(self, eval_categories, net, device):
+    def __init__(self, eval_categories, net, device, TTA=True, softnms=False):
         super(SSDPredictShowFlip, self).__init__()  # 親クラスのコンストラクタ実行
         print(device)
         self.eval_categories = eval_categories  # クラス名
         self.net = net.to(device)  # SSDネットワーク
         self.device = device
+        self.TTA =TTA
 
         color_mean = (104, 117, 123)  # (BGR)の色の平均値
         input_size = 300  # 画像のinputサイズを300×300にする
         self.transform = DataTransform(input_size, color_mean)  # 前処理クラス
         
-        self.Det = Detect_Flip().to(self.device).eval()
+        self.Det = Detect_Flip(TTA=TTA, softnms=softnms).to(self.device).eval()
 
     def show(self, image_file_path, data_confidence_level):
         """
@@ -229,8 +231,7 @@ class SSDPredictShowFlip(nn.Module):
         phase = "val"
         img_transformed, boxes, labels = self.transform(
             img, phase, "", "")  # アノテーションが存在しないので""にする。
-        img_flip = img_transformed[:, ::-1, :]
-        
+        #print("img shape:", img_transformed.shape)        
         img = torch.from_numpy(
             img_transformed[:, :, (2, 1, 0)]).permute(2, 0, 1).to(self.device)
 
@@ -242,10 +243,12 @@ class SSDPredictShowFlip(nn.Module):
         # detectionsの形は、torch.Size([1, 21, 200, 5])  ※200はtop_kの値
         
         ## Flip inference
-        x_flip = torch.from_numpy(img_flip[:, :, (2, 1, 0)]).permute(2, 0, 1).to(self.device)
+        x_flip = torch.flip(img, [2])
         x_flip = x_flip.unsqueeze(0)
         with torch.no_grad():
             detections_flip = self.net(x_flip)
+        
+        #print("check box: ", (detections[2]==detections_flip[2]).sum().numpy())
         
         ## Gather detections.
         detections_box = self.Det(detections[0], detections[1], detections_flip[0], detections_flip[1], detections[2].to(self.device))
