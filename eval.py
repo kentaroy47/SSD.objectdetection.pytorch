@@ -183,7 +183,7 @@ ssd_cfg = {
 net = SSD(phase="inference", cfg=ssd_cfg).eval()
 
 # SSD???w?K???????d????????
-net_weights = torch.load('./weights/ssd300_130.pth',
+net_weights = torch.load('./weights/ssd300_200.pth',
                          map_location={'cuda:0': 'cpu'})
 
 net.load_state_dict(net_weights)
@@ -490,7 +490,7 @@ def voc_ap(rec, prec, use_07_metric=False):
 # In[ ]:
 
 
-write_voc_results_file(pascal_classes, all_boxes, image_index)
+write_voc_results_file(pascal_classes, all_boxes, val_img_list)
 
 
 # # evaluation
