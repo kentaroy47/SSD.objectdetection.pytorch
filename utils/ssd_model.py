@@ -500,7 +500,12 @@ def decode(loc, dbox_list):
 
     # DBoxは[cx, cy, width, height]で格納されている
     # locも[Δcx, Δcy, Δwidth, Δheight]で格納されている
-
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    dbox_list = dbox_list.to(device)
+    #print("loc", loc.type())
+    #print("dbox_list", dbox_list.type())
+    
+    
     # オフセット情報からBBoxを求める
     boxes = torch.cat((
         dbox_list[:, :2] + loc[:, :2] * 0.1 * dbox_list[:, 2:],
