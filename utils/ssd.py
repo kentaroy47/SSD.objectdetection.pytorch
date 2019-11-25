@@ -499,7 +499,7 @@ def nms(boxes, scores, overlap=0.45, top_k=200):
 
 # In[35]:
 
-from utils.nms2 import nms as nms2
+#from utils.nms2 import nms as nms2
 
 class Detect(Function):
     def __init__(self, conf_thresh=0.01, top_k=200, nms_thresh=0.45):
