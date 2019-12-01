@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import cv2  # OpenCVライブラリ
 import torch
-
+import time
 from utils.ssd_model import DataTransform
 import torch.nn as nn
 
@@ -17,7 +17,7 @@ class SSDPredictShow(nn.Module):
         super(SSDPredictShow, self).__init__()  # 親クラスのコンストラクタ実行
         print(device)
         self.eval_categories = eval_categories  # クラス名
-        self.net = net.to(device)  # SSDネットワーク
+        self.net = net.to(device).eval()  # SSDネットワーク
         self.device = device
         self.TTA=TTA
 
@@ -106,7 +106,70 @@ class SSDPredictShow(nn.Module):
                 scores.append(sc)
 
         return rgb_img, predict_bbox, pre_dict_label_index, scores
+    
+    def ssd_inference(self, dataloader, all_boxes, data_confidence_level=0.05):
+        """
+        SSDで予測させる関数。
 
+        Parameters
+        ----------
+        image_file_path:  strt
+            画像のファイルパス
+
+        dataconfidence_level: float
+            予測で発見とする確信度の閾値
+
+        Returns
+        -------
+        rgb_img, true_bbox, true_label_index, predict_bbox, pre_dict_label_index, scores
+        """
+        
+        empty_array = np.transpose(np.array([[],[],[],[],[]]), (1,0))
+        iii=0 # image number
+        width = 300
+        height = 300
+        for img, _ in dataloader:
+            num_batch = len(img)
+            # SSDで予測
+            self.net.eval().to(self.device)  # ネットワークを推論モードへ
+            tick = time.time()
+            with torch.no_grad():
+                x = img.to(self.device)  # ミニバッチ化：torch.Size([1, 3, 300, 300])               
+                detections = self.net(x)
+                
+            tock = time.time()
+            # detectionsの形は、torch.Size([1, 21, 200, 5])  ※200はtop_kの値
+
+            # confidence_levelが基準以上を取り出す
+            predict_bbox = []
+            pre_dict_label_index = []
+            scores = []
+            detections = detections.cpu().detach().numpy()
+            print(detections.shape)
+
+            # 条件以上の値を抽出
+            took = time.time()
+            for batch, detection in enumerate(detections):
+                for cls in range(21):
+                    box = []
+                    for j,pred in enumerate(detection[cls]):
+                        if pred[0] > data_confidence_level:
+                            pred[1:] *= width
+                            box.append([pred[0],pred[1],pred[2],pred[3],pred[4]])
+                    if not box == []:
+                        all_boxes[cls][iii*num_batch + batch] = box
+                    else:
+                        all_boxes[cls][iii*num_batch + batch] = empty_array
+                    
+            teek = time.time()
+            #if i%100==0:
+            print("iter:", iii)            
+            iii += 1
+            
+            print("sort boxes. detection was {} and post took {} and allboxappend took {}".format(tock-tick, took-tock, teek-took))
+            
+        return all_boxes
+    
     def vis_bbox(self, rgb_img, bbox, label_index, scores, label_names):
         """
         物体検出の予測結果を画像で表示させる関数。
