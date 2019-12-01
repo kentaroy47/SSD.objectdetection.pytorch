@@ -37,7 +37,10 @@ run yolo.ipynb (TBD)
 ## Train Faster RCNN Models
 run frcnn.ipynb (TBD)
 
-# Training results for ssd
+## Test models
+run `eval.ipynb`
+
+# Test results for ssd
 
 Pascal VOC 2007 test set:
 
