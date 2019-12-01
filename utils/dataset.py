@@ -180,6 +180,7 @@ class VOCDataset(data.Dataset):
     def pull_item(self, index):
         '''前処理をした画像のテンソル形式のデータ、アノテーション、画像の高さ、幅を取得する'''
         # 1. 画像を取得。サイズも取得する。
+        print(self.img_list[index])
         img_path = self.img_list[index]
         img = cv2.imread(img_path)
         height, width, channel = img.shape
