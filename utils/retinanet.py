@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.autograd import Variable
-from utils.ssd import DBox, Detect
+from utils.ssd_model import DBox, Detect
 
 class Bottleneck(nn.Module):
     """
@@ -84,7 +84,7 @@ def make_loc_conf(num_classes=21, bbox_aspect_num=[4, 6, 6, 6, 4, 4]):
     return nn.ModuleList(loc_layers), nn.ModuleList(conf_layers)
 
 class RetinaFPN(nn.Module):
-    def __init__(self, block, num_blocks, phase, cfg, verbose=False, model="resnet18"):
+    def __init__(self, phase, cfg, verbose=False, model="resnet18"):
         super(RetinaFPN, self).__init__()
         self.in_planes = 64
         
@@ -106,23 +106,23 @@ class RetinaFPN(nn.Module):
         # define resnet18
         if model == "resnet18":       
             resnet=torchvision.models.resnet18(pretrained=True)     
-            print(resnet)
+            #print(resnet)
             ratio = 1
         elif model == "resnet34":
             resnet=torchvision.models.resnet34(pretrained=True)     
-            print(resnet)
+            #print(resnet)
             ratio = 4
         elif model == "resnet50":
             resnet=torchvision.models.resnet50(pretrained=True)     
-            print(resnet)
+            #print(resnet)
             ratio = 4
         elif model == "resnet101":
             resnet=torchvision.models.resnet101(pretrained=True)     
-            print(resnet)
+            #print(resnet)
             ratio = 4
         elif model == "resnet152":
             resnet=torchvision.models.resnet152(pretrained=True)     
-            print(resnet)
+            #print(resnet)
             ratio = 4
             
         ## CNN layers
