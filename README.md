@@ -44,6 +44,7 @@ run `eval.ipynb`
 
 Pascal VOC 2007 test set.
 
+### SSD-300
 Model:
 https://github.com/kentaroy47/ObjectDetection.Pytorch/releases/download/ssdvgg200/ssd300_200.pth
 
@@ -74,3 +75,29 @@ Results:
 0.796
 ~~~~~~~~
 
+### RetinaNet-300 Resnet18
+Mean AP = 0.7279
+~~~~~~~~
+Results:
+0.759
+0.814
+0.725
+0.661
+0.373
+0.807
+0.836
+0.847
+0.508
+0.759
+0.741
+0.816
+0.848
+0.813
+0.743
+0.420
+0.695
+0.803
+0.859
+0.731
+0.728
+~~~~~~~~
