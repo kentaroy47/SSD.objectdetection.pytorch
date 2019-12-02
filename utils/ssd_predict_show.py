@@ -106,7 +106,66 @@ class SSDPredictShow(nn.Module):
                 scores.append(sc)
 
         return rgb_img, predict_bbox, pre_dict_label_index, scores
-    
+    def ssd_predict2(self, image_file_path, data_confidence_level=0.5):
+        """
+        SSDで予測させる関数。
+
+        Parameters
+        ----------
+        image_file_path:  strt
+            画像のファイルパス
+
+        dataconfidence_level: float
+            予測で発見とする確信度の閾値
+
+        Returns
+        -------
+        rgb_img, true_bbox, true_label_index, predict_bbox, pre_dict_label_index, scores
+        """
+
+        # rgbの画像データを取得
+        img = cv2.imread(image_file_path)  # [高さ][幅][色BGR]
+        height, width, channels = img.shape  # 画像のサイズを取得
+        rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        # 画像の前処理
+        phase = "val"
+        img_transformed, boxes, labels = self.transform(
+            img, phase, "", "")  # アノテーションが存在しないので""にする。
+        img = torch.from_numpy(
+            img_transformed[:, :, (2, 1, 0)]).permute(2, 0, 1).to(self.device)
+
+        # SSDで予測
+        #self.net.eval()  # ネットワークを推論モードへ
+        x = img.unsqueeze(0)  # ミニバッチ化：torch.Size([1, 3, 300, 300])
+
+        detections = self.net(x)
+        # detectionsの形は、torch.Size([1, 21, 200, 5])  ※200はtop_kの値
+
+        # confidence_levelが基準以上を取り出す
+        predict_bbox = []
+        pre_dict_label_index = []
+        scores = []
+        detections = detections.cpu().detach().numpy()
+
+        # 条件以上の値を抽出
+        find_index = np.where(detections[:, 0:, :, 0] >= data_confidence_level)
+        detections = detections[find_index]
+        for i in range(len(find_index[1])):  # 抽出した物体数分ループを回す
+            if (find_index[1][i]) > 0:  # 背景クラスでないもの
+                sc = detections[i][0]  # 確信度
+                detections[i][1:] *= [width, height, width, height]
+                # find_indexはミニバッチ数、クラス、topのtuple
+                lable_ind = find_index[1][i]-1
+                # （注釈）
+                # 背景クラスが0なので1を引く
+
+                # 返り値のリストに追加
+                #predict_bbox.append(bbox)
+                pre_dict_label_index.append(lable_ind)
+                scores.append(sc)
+
+        return detections, pre_dict_label_index
     def ssd_inference(self, dataloader, all_boxes, data_confidence_level=0.05):
         """
         SSDで予測させる関数。

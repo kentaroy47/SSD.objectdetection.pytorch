@@ -19,22 +19,22 @@ import torch.nn.functional as F
 from torch.autograd import Function
 
 def FPN(sources, fpnconv):
-    mode = "nearest"
+    mode = 'bilinear'
     # make layers
     sources[5] = fpnconv[0](sources[5])
-    x = nn.functional.interpolate(sources[5], size=[3,3], mode=mode)
+    x = F.interpolate(sources[5], size=[3,3], mode=mode)
     
     sources[4] = fpnconv[1](sources[4]) + x
-    x = nn.functional.interpolate(sources[4], size=[5,5], mode=mode)
+    x = F.interpolate(sources[4], size=[5,5], mode=mode)
     
     sources[3] = fpnconv[2](sources[3]) + x
-    x = nn.functional.interpolate(sources[3], size=[10,10], mode=mode)
+    x = F.interpolate(sources[3], size=[10,10], mode=mode)
     
     sources[2] = fpnconv[3](sources[2]) + x
-    x = nn.functional.interpolate(sources[2], size=[19,19], mode=mode)
+    x = F.interpolate(sources[2], size=[19,19], mode=mode)
     
     sources[1] = fpnconv[4](sources[1]) + x
-    x = nn.functional.interpolate(sources[1], size=[38,38], mode=mode)
+    x = F.interpolate(sources[1], size=[38,38], mode=mode)
     
     sources[0] = fpnconv[5](sources[0]) + x
     
