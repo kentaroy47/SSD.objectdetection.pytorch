@@ -3,6 +3,20 @@
 
 This repo is an object detection library for pytorch (ssd, yolo, faster-rcnn).
 
+**RetinaNet Architecture**
+
+VOCmAP: train VOC07+12 test VOC07
+
+|*backbone*|*resolution*|*VOCmAP*    |*COCOmAP*|*Inference[ms]*|*model*|
+|:------:|:------------:|:----------:|:-------:|:-------------:|:-----:|
+|VGG16   |300           |79.5        |         |               |[here](https://github.com/kentaroy47/ObjectDetection.Pytorch/releases/download/ssdvgg200/ssd300_200.pth)|
+|resnet18|300           |76.5        |         |               |       |
+|resnet50|300           |80.5        |         |               |       |
+|resnet101|300           |           |         |               |       |
+|resnet18|600           |            |         |               |       |
+|resnet50|600           |            |         |               |       |
+|resnet101|600           |           |         |               |       |
+
 ## To start off
 requirements: cv2, pandas. plz install.
 
